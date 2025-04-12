@@ -56,6 +56,10 @@ model User {
   employee        Employee?      @relation(fields: [employeeId], references: [id])
   approvedLeaves  LeaveRequest[] @relation("ApprovedBy")
 
+  // Relații pentru permisiuni
+  userCapabilities    UserCapability[]
+  permissionGroups    UserPermissionGroup[]
+
   @@unique([email, companyId])
   @@index([companyId])
   @@map("users")
@@ -147,4 +151,93 @@ model LeaveRequest {
   @@index([approvedById])
   @@index([companyId])
   @@map("leave_requests")
+}
+
+// Modelul pentru capabilități (permisiuni)
+model Capability {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g. "MANAGE_TEAM_MEMBERS"
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relații
+  roleCapabilities    RoleCapability[]
+  userCapabilities    UserCapability[]
+  permissionGroups    CapabilityGroup[]
+}
+
+// Modelul pentru grupuri de permisiuni
+model PermissionGroup {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relații
+  capabilities CapabilityGroup[]
+  users        UserPermissionGroup[]
+}
+
+// Tabel de legătură între grupuri de permisiuni și capabilități
+model CapabilityGroup {
+  id               String          @id @default(uuid())
+  permissionGroup  PermissionGroup @relation(fields: [permissionGroupId], references: [id], onDelete: Cascade)
+  permissionGroupId String
+  capability       Capability      @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+  capabilityId     String
+  
+  // Pentru a preveni duplicate
+  @@unique([permissionGroupId, capabilityId])
+}
+
+// Tabel de legătură între utilizatori și grupuri de permisiuni
+model UserPermissionGroup {
+  id               String          @id @default(uuid())
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String
+  permissionGroup  PermissionGroup @relation(fields: [permissionGroupId], references: [id], onDelete: Cascade)
+  permissionGroupId String
+  
+  // Pentru a preveni duplicate
+  @@unique([userId, permissionGroupId])
+}
+
+// Tabel pentru maparea roluri -> capabilități (permisiuni implicite bazate pe rol)
+model RoleCapability {
+  id           String     @id @default(uuid())
+  role         String     // e.g. "SUPER_ADMIN", "COMPANY_ADMIN", etc.
+  capability   Capability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+  capabilityId String
+  createdAt    DateTime   @default(now())
+  
+  // Pentru a preveni duplicate
+  @@unique([role, capabilityId])
+}
+
+// Tabel pentru maparea utilizatori -> capabilități (permisiuni personalizate)
+model UserCapability {
+  id           String     @id @default(uuid())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  capability   Capability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+  capabilityId String
+  isGranted    Boolean    // true = permisiune adăugată, false = permisiune revocată
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  createdBy    String?    // ID-ul utilizatorului care a acordat/revocat permisiunea
+  
+  // Pentru a preveni duplicate
+  @@unique([userId, capabilityId])
+}
+
+// Tabel pentru auditarea modificărilor de permisiuni
+model PermissionAudit {
+  id           String   @id @default(uuid())
+  userId       String   // Utilizatorul afectat
+  performedBy  String   // Utilizatorul care a făcut modificarea
+  action       String   // "GRANT", "REVOKE", "ADD_TO_GROUP", etc.
+  details      String   // Detalii despre modificare în format JSON
+  timestamp    DateTime @default(now())
 }

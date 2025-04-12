@@ -6,9 +6,12 @@ const withPWA = require('next-pwa')({
   skipWaiting: true,
 });
 
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 const nextConfig = withPWA({
   reactStrictMode: true,
-  output: 'export', // Adăugat pentru a genera fișiere statice pentru Capacitor
+  // Folosim output: export doar în producție, nu în dezvoltare
+  ...(isDevelopment ? {} : { output: 'export' }),
   images: {
     unoptimized: true, // Necesar pentru output: 'export'
   },

@@ -12,7 +12,8 @@ export class AuthService {
 
   async login(email: string, password: string) {
     const user = await this.prisma.user.findFirst({
-      where: { email }
+      where: { email },
+      include: { employee: true }
     });
 
     if (!user) {
@@ -30,6 +31,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       companyId: user.companyId,
+      employeeId: user.employee?.id || null,
     };
 
     return {
@@ -39,6 +41,7 @@ export class AuthService {
         email: user.email,
         role: user.role,
         companyId: user.companyId,
+        employeeId: user.employee?.id || null,
       },
     };
   }
