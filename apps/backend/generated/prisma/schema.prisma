@@ -1,0 +1,151 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  COMPANY_ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  cui       String   @unique
+  address   String?
+  email     String?
+  phone     String?
+  logo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relații
+  users         User[]
+  employees     Employee[]
+  timesheets    Timesheet[]
+  leaveRequests LeaveRequest[]
+
+  @@map("companies")
+}
+
+model User {
+  id         String   @id @default(uuid())
+  email      String
+  password   String
+  role       UserRole
+  isActive   Boolean  @default(true)
+  companyId  String?
+  employeeId String?  @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relații
+  company        Company?       @relation(fields: [companyId], references: [id])
+  employee       Employee?      @relation(fields: [employeeId], references: [id])
+  approvedLeaves LeaveRequest[] @relation("ApprovedBy")
+
+  @@unique([email, companyId])
+  @@index([companyId])
+  @@map("users")
+}
+
+model Employee {
+  id         String    @id @default(uuid())
+  firstName  String
+  lastName   String
+  cnp        String?
+  address    String?
+  birthDate  DateTime?
+  hireDate   DateTime
+  position   String?
+  department String?
+  companyId  String
+  managerId  String?
+  userId     String?   @unique
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Relații
+  company       Company        @relation(fields: [companyId], references: [id])
+  manager       Employee?      @relation("EmployeeToManager", fields: [managerId], references: [id])
+  subordinates  Employee[]     @relation("EmployeeToManager")
+  user          User?
+  phones        PhoneNumber[]
+  timesheets    Timesheet[]
+  leaveRequests LeaveRequest[]
+
+  @@index([companyId])
+  @@index([managerId])
+  @@map("employees")
+}
+
+model PhoneNumber {
+  id         String   @id @default(uuid())
+  number     String
+  type       String
+  employeeId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relații
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+  @@map("phone_numbers")
+}
+
+model Timesheet {
+  id         String    @id @default(uuid())
+  employeeId String
+  checkIn    DateTime
+  checkOut   DateTime?
+  totalHours Float?
+  companyId  String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Relații
+  employee Employee @relation(fields: [employeeId], references: [id])
+  company  Company  @relation(fields: [companyId], references: [id])
+
+  @@index([employeeId])
+  @@index([companyId])
+  @@map("timesheets")
+}
+
+model LeaveRequest {
+  id           String   @id @default(uuid())
+  employeeId   String
+  startDate    DateTime
+  endDate      DateTime
+  type         String
+  status       String   @default("pending")
+  approvedById String?
+  reason       String?
+  companyId    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relații
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  approvedBy User?    @relation("ApprovedBy", fields: [approvedById], references: [id])
+  company    Company  @relation(fields: [companyId], references: [id])
+
+  @@index([employeeId])
+  @@index([approvedById])
+  @@index([companyId])
+  @@map("leave_requests")
+}
